@@ -1,0 +1,16 @@
+dependencies:
+  idf:
+    source:
+      type: idf
+    version: 6.0.1
+  my_adc_component:
+    dependencies: []
+    source:
+      path: ../..
+      type: local
+    version: '*'
+direct_dependencies:
+- my_adc_component
+manifest_hash: 81cc7790bd1a56714b0d16eefd11d62c20a55dfb35b690de0bfbf7144a1ccd0c
+target: esp32
+version: 3.0.0

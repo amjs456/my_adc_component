@@ -1,0 +1,17 @@
+menu "I2S Pin configuration"
+    config I2S_MCLK_GPIO
+    int "I2S MCLK GPIO"
+    default 0
+
+    config I2S_BCLK_GPIO
+    int "I2S BCLK GPIO"
+    default 27
+
+    config I2S_WS_GPIO
+    int "I2S WS GPIO"
+    default 14
+
+    config I2S_DIN_GPIO
+    int "I2S DIN GPIO"
+    default 12
+endmenu
