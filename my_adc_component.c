@@ -7,8 +7,12 @@
 
 #include "driver/i2s_std.h"
 #include "esp_log.h"
+#include "freertos/idf_additions.h"
 #include "hal/i2s_types.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/ringbuf.h"
+#include "freertos/projdefs.h"
+#include "portmacro.h"
 #include "sdkconfig.h"
 #include <stddef.h>
 #include <stdint.h>
@@ -33,7 +37,7 @@ esp_err_t my_adc_init() {
 
     i2s_std_config_t rx_std_cfg = {
         .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(48000),
-        .slot_cfg = I2S_STD_MSB_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_MONO),
+        .slot_cfg = I2S_STD_MSB_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_32BIT, I2S_SLOT_MODE_STEREO),
         .gpio_cfg = {
             .mclk = CONFIG_I2S_MCLK_GPIO,
             .bclk = CONFIG_I2S_BCLK_GPIO,
@@ -55,21 +59,25 @@ esp_err_t my_adc_init() {
     return ESP_OK;
 }
 
-void my_adc_read_task(void *args){
-    uint8_t *r_buf = (uint8_t *)calloc(1, BUF_SIZE);
-    assert(r_buf);
+void my_adc_read_task(void *args)
+{
+    RingbufHandle_t buf_handle = (RingbufHandle_t)args;
+    int32_t samples[BUF_SIZE / sizeof(int32_t)];
     size_t r_bytes = 0;
-
 
     ESP_ERROR_CHECK(i2s_channel_enable(rx_chan));
 
-    while(1) {
-        if(i2s_channel_read(rx_chan, r_buf, BUF_SIZE, &r_bytes, portMAX_DELAY) == ESP_OK) {
-            printf("[0] %x [1] %x [2] %x [3] %x\n[4] %x [5] %x [6] %x [7] %x\n\n",
-                   r_buf[0], r_buf[1], r_buf[2], r_buf[3], r_buf[4], r_buf[5], r_buf[6], r_buf[7]);
-        } else {
-            printf("Read task: i2s read failed\n");
+    while (1) {
+        if (i2s_channel_read(
+                rx_chan, samples, sizeof(samples),
+                &r_bytes, portMAX_DELAY) != ESP_OK) {
+            continue;
+        }
+
+
+        UBaseType_t res = xRingbufferSend(buf_handle, samples, r_bytes, portMAX_DELAY);
+        if(res != pdTRUE){
+            printf("Failed to send sample\n");
         }
     }
 }
-
