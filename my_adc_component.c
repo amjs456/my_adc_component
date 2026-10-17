@@ -47,7 +47,7 @@ esp_err_t my_adc_init() {
             .invert_flags = {
                 .mclk_inv = false,
                 .bclk_inv = false,
-                .ws_inv = false,
+                .ws_inv = true,
             }
         }
     };
