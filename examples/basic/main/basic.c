@@ -23,11 +23,10 @@ void read_buf_task(void *args){
         for(size_t i = 0; i + 1 < n; i+=2){
             int32_t lin = samples[i] >> 8;
             int32_t rin = samples[i + 1] >> 8;
+            printf("%ld\n", rin);
         }
         vRingbufferReturnItem(buf_handle, samples);
     }
-    
-
 }
 
 
