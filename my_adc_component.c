@@ -17,7 +17,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define BUF_SIZE 64
+#define BUF_SIZE 512
 
 static char* TAG = "my-adc";
 

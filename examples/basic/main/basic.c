@@ -32,7 +32,7 @@ void read_buf_task(void *args){
 
 void app_main(void) {
     RingbufHandle_t buf_handle;
-    buf_handle = xRingbufferCreate(1024, RINGBUF_TYPE_NOSPLIT);
+    buf_handle = xRingbufferCreate(4096, RINGBUF_TYPE_NOSPLIT);
     if(buf_handle == NULL){
         printf("Failed to create ring buffer\n");
     }
