@@ -31,7 +31,7 @@ esp_err_t my_adc_init() {
     i2s_chan_config_t rx_chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
     err = i2s_new_channel(&rx_chan_cfg, NULL, &rx_chan);
     if (err != ESP_OK){
-        ESP_LOGE(TAG, "i2s_new_channel failed");
+        ESP_LOGE(TAG, "i2s_new_channel failed: %s", esp_err_to_name(err));
         return err;
     }
 
@@ -53,7 +53,9 @@ esp_err_t my_adc_init() {
     };
     err = i2s_channel_init_std_mode(rx_chan, &rx_std_cfg);
     if(err != ESP_OK){
-        ESP_LOGE(TAG, "i2s_channel_init_std_mode failed");
+        ESP_LOGE(TAG, "i2s_channel_init_std_mode failed: %s", esp_err_to_name(err));
+        i2s_del_channel(rx_chan);
+        rx_chan = NULL;
         return err;
     }
     return ESP_OK;
@@ -62,22 +64,69 @@ esp_err_t my_adc_init() {
 void my_adc_read_task(void *args)
 {
     RingbufHandle_t buf_handle = (RingbufHandle_t)args;
+    size_t max_size = xRingbufferGetMaxItemSize(buf_handle);
     int32_t samples[BUF_SIZE / sizeof(int32_t)];
     size_t r_bytes = 0;
+    bool enabled = false;
 
-    ESP_ERROR_CHECK(i2s_channel_enable(rx_chan));
+
+    esp_err_t err = i2s_channel_enable(rx_chan);
+    if(err != ESP_OK){
+        ESP_LOGE(TAG, "i2s_channel_enable failed: %s", esp_err_to_name(err));
+        goto cleanup;
+    }
+    enabled = true;
 
     while (1) {
-        if (i2s_channel_read(
-                rx_chan, samples, sizeof(samples),
-                &r_bytes, portMAX_DELAY) != ESP_OK) {
-            continue;
+        err = i2s_channel_read(
+                rx_chan,
+                samples,
+                sizeof(samples),
+                &r_bytes,
+                portMAX_DELAY
+            );
+        switch (err) {
+            case ESP_OK:
+                break;
+            // タイムアウトの場合
+            case ESP_ERR_TIMEOUT:
+                ESP_LOGW(TAG, "i2s_channel_read timeout");
+                continue;
+            // ぬるぽかRX handleでない場合
+            case ESP_ERR_INVALID_ARG:
+            // 準備ができていない場合
+            case ESP_ERR_INVALID_STATE:
+                ESP_LOGE(TAG, "i2s_channel_read failed: %s", esp_err_to_name(err));
+                goto cleanup;
+            default:
+                ESP_LOGE(TAG, "Unexpected error");
+                goto cleanup;
         }
 
-
-        UBaseType_t res = xRingbufferSend(buf_handle, samples, r_bytes, portMAX_DELAY);
+        BaseType_t res = xRingbufferSend(buf_handle, samples, r_bytes, portMAX_DELAY);
         if(res != pdTRUE){
-            printf("Failed to send sample\n");
+            if(r_bytes > max_size){
+                ESP_LOGE(TAG, "Send data size is larger than ringbuffer size");
+                goto cleanup;
+            } else {
+                ESP_LOGW(TAG, "xRingbufferSend is timed out");
+            }
         }
+        
     }
+    cleanup: 
+        if(enabled){
+            err = i2s_channel_disable(rx_chan);
+            if(err != ESP_OK){
+                ESP_LOGE(TAG, "i2s_channel_disable is failed: %s", esp_err_to_name(err));
+            }
+        }
+        
+        err = i2s_del_channel(rx_chan);
+        if(err != ESP_OK){
+            ESP_LOGE(TAG, "i2s_del_channel failed: %s", esp_err_to_name(err));
+        } else {
+            rx_chan = NULL;
+        }
+        vTaskDelete(NULL);
 }

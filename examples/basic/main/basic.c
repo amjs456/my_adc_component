@@ -23,7 +23,7 @@ void read_buf_task(void *args){
         for(size_t i = 0; i + 1 < n; i+=2){
             int32_t lin = samples[i] >> 8;
             int32_t rin = samples[i + 1] >> 8;
-            printf("%ld\n", lin);
+            //printf("%ld\n", lin);
         }
         vRingbufferReturnItem(buf_handle, samples);
     }
@@ -32,7 +32,7 @@ void read_buf_task(void *args){
 
 void app_main(void) {
     RingbufHandle_t buf_handle;
-    buf_handle = xRingbufferCreate(4096, RINGBUF_TYPE_NOSPLIT);
+    buf_handle = xRingbufferCreate(RINGBUFFER_SIZE, RINGBUF_TYPE_NOSPLIT);
     if(buf_handle == NULL){
         printf("Failed to create ring buffer\n");
     }
